@@ -13,29 +13,20 @@ except:
 # --- FUNZIONE PER CARICARE I MEZZI ---
 @st.cache_data
 def load_mezzi():
-    # Leggiamo il file: header=1 perché la prima riga ha solo il titolo "Automezzi ASP"
     df = pd.read_excel("Automezzi ASP (8).xlsx", header=1)
     
-    # Rinominiamo le colonne in base alla struttura del file
+    # Rinomina le colonne come nel tuo file
     df = df.rename(columns={
         "Automezzi ASP": "TARGA",
         "Unnamed: 1": "TIPOLOGIA",
-        "Unnamed: 2": "MODELLO",
-        "Unnamed: 3": "DATA IMMATR",
-        "Unnamed: 4": "EURO",
-        "Unnamed: 5": "ALIMENTAZIONE",
-        "Unnamed: 6": "CENTRO DI COSTO",
-        "Unnamed: 7": "REFERENTE"
+        "Unnamed: 2": "MODELLO"
     })
     
-    # Pulizia spazi extra nei nomi
-    df = df.rename(columns=lambda x: str(x).strip())
-    
-    # Colonna combinata modello + targa
-    if "MODELLO" in df.columns and "TARGA" in df.columns:
-        df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
+    # Se la colonna TIPOlOGIA contiene già la targa dentro, usiamo quella come identificativo
+    if "TIPOLOGIA" in df.columns:
+        df["MEZZO_COMPLETO"] = df["TIPOLOGIA"].astype(str)
     else:
-        st.error("❌ Non trovo le colonne MODELLO e TARGA, controlla il file Excel.")
+        st.error("❌ Non trovo la colonna con tipologia+targa. Controlla il file Excel.")
     
     return df
 
@@ -57,18 +48,18 @@ if "inizio_settimana" not in st.session_state:
 inizio_settimana = st.session_state.inizio_settimana
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%d/%m/%Y')}** al **{fine_settimana.strftime('%d/%m/%Y')}**")
+st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** al **{fine_settimana.strftime('%-d/%-m/%Y')}**")
 
-# Giorni settimana (formato G/M/A)
+# Giorni della settimana (formato G/M/A)
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
-giorni_labels = [g.strftime("%A %d/%m/%Y").capitalize() for g in giorni]
+giorni_labels = [g.strftime("%A %-d/%-m/%Y").capitalize() for g in giorni]
 
 # --- COSTRUZIONE CALENDARIO ---
 calendario = pd.DataFrame(index=mezzi["MEZZO_COMPLETO"].dropna().unique(), columns=giorni_labels)
 
 for _, row in prenotazioni.iterrows():
     if inizio_settimana <= row["Data"].date() <= fine_settimana:
-        giorno_label = row["Data"].strftime("%A %d/%m/%Y").capitalize()
+        giorno_label = row["Data"].strftime("%A %-d/%-m/%Y").capitalize()
         ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
         ora_fine = pd.to_datetime(str(row["Ora Fine"])).strftime("%H:%M")
         info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
@@ -87,12 +78,13 @@ def color_cells(val):
 styled_calendario = calendario.fillna("").style.applymap(color_cells)
 
 # --- MOSTRARE CALENDARIO ---
-col1, col2 = st.columns([3,1])
+col1, col2, col3 = st.columns([5,1,1])
 with col1:
     st.subheader("📊 Calendario settimanale")
 with col2:
     if st.button("⬅️", key="prev"):
         st.session_state.inizio_settimana -= datetime.timedelta(days=7)
+with col3:
     if st.button("➡️", key="next"):
         st.session_state.inizio_settimana += datetime.timedelta(days=7)
 
@@ -107,7 +99,7 @@ st.markdown(
     th {
         background-color: #90EE90 !important;
         color: black !important;
-        padding: 8px;
+        padding: 6px;
         text-align: center;
         border: 1px solid #bbb;
     }
