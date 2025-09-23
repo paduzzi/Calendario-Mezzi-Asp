@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import locale
+from io import BytesIO
 
 # Imposta lingua italiana
 try:
@@ -105,6 +106,18 @@ st.markdown(
 )
 
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
+
+# --- PULSANTE DOWNLOAD EXCEL ---
+if not prenotazioni.empty:
+    buffer = BytesIO()
+    prenotazioni.to_excel(buffer, index=False, engine="openpyxl")
+    buffer.seek(0)
+    st.download_button(
+        label="📥 Scarica prenotazioni (Excel)",
+        data=buffer,
+        file_name="prenotazioni_automezzi.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # --- FORM NUOVA PRENOTAZIONE ---
 st.subheader("➕ Nuova prenotazione")
