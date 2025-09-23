@@ -80,8 +80,8 @@ if not prenotazioni.empty:
                 continue
             mezzo_reale = calendario.index[index_norm.index(mezzo_norm)]
 
-            ora_inizio = pd.to_datetime(str(row["Ora Inizio"]), errors="coerce").strftime("%H:%M")
-            ora_fine = pd.to_datetime(str(row["Ora Fine"]), errors="coerce").strftime("%H:%M")
+            ora_inizio = str(row["Ora Inizio"])
+            ora_fine = str(row["Ora Fine"])
             info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
 
             if pd.isna(calendario.at[mezzo_reale, giorno_label]):
@@ -197,10 +197,13 @@ with st.form("nuova_prenotazione"):
 
 if submit:
     nuova = pd.DataFrame(
-        [[mezzo, data, ora_inizio, ora_fine, utente]],
+        [[mezzo, data.strftime("%Y-%m-%d"), ora_inizio.strftime("%H:%M"), ora_fine.strftime("%H:%M"), utente]],
         columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"],
     )
+
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
+
     st.success("✅ Prenotazione registrata!")
     st.rerun()
+
