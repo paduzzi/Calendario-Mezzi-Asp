@@ -13,17 +13,29 @@ except:
 # --- FUNZIONE PER CARICARE I MEZZI ---
 @st.cache_data
 def load_mezzi():
-    # Leggiamo il file e prendiamo la prima riga come intestazione
-    df = pd.read_excel("Automezzi ASP (8).xlsx", header=0)
+    # Leggiamo il file: header=1 perché la prima riga ha solo il titolo "Automezzi ASP"
+    df = pd.read_excel("Automezzi ASP (8).xlsx", header=1)
     
-    # Puliamo i nomi delle colonne (eliminiamo spazi extra)
+    # Rinominiamo le colonne in base alla struttura del file
+    df = df.rename(columns={
+        "Automezzi ASP": "TARGA",
+        "Unnamed: 1": "TIPOLOGIA",
+        "Unnamed: 2": "MODELLO",
+        "Unnamed: 3": "DATA IMMATR",
+        "Unnamed: 4": "EURO",
+        "Unnamed: 5": "ALIMENTAZIONE",
+        "Unnamed: 6": "CENTRO DI COSTO",
+        "Unnamed: 7": "REFERENTE"
+    })
+    
+    # Pulizia spazi extra nei nomi
     df = df.rename(columns=lambda x: str(x).strip())
     
-    # Creiamo colonna MODELLO + TARGA
+    # Colonna combinata modello + targa
     if "MODELLO" in df.columns and "TARGA" in df.columns:
         df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
     else:
-        st.error("❌ Il file Excel non contiene le colonne 'MODELLO' e 'TARGA'. Controlla il foglio caricato.")
+        st.error("❌ Non trovo le colonne MODELLO e TARGA, controlla il file Excel.")
     
     return df
 
