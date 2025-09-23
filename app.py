@@ -26,7 +26,7 @@ st.title("🚐 Calendario prenotazioni automezzi")
 # --- NAVIGAZIONE SETTIMANA ---
 oggi = datetime.date.today()
 
-# sempre settimana corrente (no session_state)
+# sempre settimana corrente (no session_state per reset automatico)
 inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
@@ -84,7 +84,7 @@ styled_calendario = calendario.fillna("").style.applymap(color_cells)
 # --- MOSTRARE CALENDARIO ---
 st.subheader("📊 Calendario settimanale")
 
-# CSS per celle più grandi e testo a capo
+# CSS per celle più grandi, testo a capo e responsive su mobile
 st.markdown(
     """
     <style>
@@ -107,7 +107,7 @@ st.markdown(
     }
     td {
         border: 1px solid #bbb;
-        padding: 10px; /* più spazio */
+        padding: 10px;
         vertical-align: top;
         white-space: pre-wrap;
         word-wrap: break-word;
@@ -117,22 +117,11 @@ st.markdown(
         background-color: white !important;
         color: black !important;
         font-weight: bold;
-        min-width: 220px; /* celle mezzi più larghe */
+        min-width: 220px;
     }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-st.write(styled_calendario.to_html(), unsafe_allow_html=True)
-
-# CSS extra per mobile
-st.markdown(
-    """
-    <style>
     @media (max-width: 600px) {
         table {
-            font-size: 12px; /* testo più piccolo */
+            font-size: 12px; /* testo più piccolo su smartphone */
         }
         th, td {
             padding: 4px;
@@ -146,11 +135,10 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Avvolgi la tabella in un div scrollabile
+# ✅ Mostra il calendario una sola volta, scrollabile su mobile
 st.markdown('<div class="scrollable-table">', unsafe_allow_html=True)
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
-
 
 # --- PULSANTI DOWNLOAD ---
 if not prenotazioni.empty:
@@ -197,4 +185,3 @@ if submit:
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
-
