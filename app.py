@@ -10,17 +10,26 @@ try:
 except:
     pass
 
-# Carica mezzi
+# --- FUNZIONE PER CARICARE I MEZZI ---
 @st.cache_data
 def load_mezzi():
-    df = pd.read_excel("Automezzi ASP (8).xlsx", skiprows=1)
-    # Combiniamo MODELLO + TARGA
-    df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
+    # Leggiamo il file e prendiamo la prima riga come intestazione
+    df = pd.read_excel("Automezzi ASP (8).xlsx", header=0)
+    
+    # Puliamo i nomi delle colonne (eliminiamo spazi extra)
+    df = df.rename(columns=lambda x: str(x).strip())
+    
+    # Creiamo colonna MODELLO + TARGA
+    if "MODELLO" in df.columns and "TARGA" in df.columns:
+        df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
+    else:
+        st.error("❌ Il file Excel non contiene le colonne 'MODELLO' e 'TARGA'. Controlla il foglio caricato.")
+    
     return df
 
 mezzi = load_mezzi()
 
-# Carica prenotazioni
+# --- CARICAMENTO PRENOTAZIONI ---
 try:
     prenotazioni = pd.read_csv("prenotazioni.csv", parse_dates=["Data"])
 except FileNotFoundError:
