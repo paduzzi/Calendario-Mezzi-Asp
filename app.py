@@ -14,11 +14,11 @@ except:
 @st.cache_data
 def load_mezzi():
     df = pd.read_excel("Automezzi ASP (8).xlsx", skiprows=1)
-    # Combiniamo modello + targa (se presenti entrambe le colonne)
+    # Se c'è anche la targa, combiniamo Modello + Targa
     if "MODELLO" in df.columns and "TARGA" in df.columns:
-        df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
+        df["MODELLO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
     else:
-        df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str)
+        df["MODELLO_COMPLETO"] = df["MODELLO"].astype(str)
     return df
 
 mezzi = load_mezzi()
@@ -27,7 +27,7 @@ mezzi = load_mezzi()
 try:
     prenotazioni = pd.read_csv("prenotazioni.csv", parse_dates=["Data"])
 except FileNotFoundError:
-    prenotazioni = pd.DataFrame(columns=["Mezzo", "Data", "Ora Inizio", "Ora Fine", "Utente"])
+    prenotazioni = pd.DataFrame(columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
 
 st.title("🚐 Calendario prenotazioni automezzi")
 
@@ -41,26 +41,26 @@ fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
 st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** al **{fine_settimana.strftime('%-d/%-m/%Y')}**")
 
-# Giorni della settimana in italiano, formato G/M/A
+# Giorni della settimana (italiano, formato G/M/A)
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
 giorni_labels = [g.strftime("%A %-d/%-m/%Y").capitalize() for g in giorni]
 
 # --- COSTRUZIONE TABELLA CALENDARIO ---
-calendario = pd.DataFrame(index=mezzi["MEZZO_COMPLETO"].dropna().unique(), columns=giorni_labels)
+calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels)
 
 if not prenotazioni.empty:
     for _, row in prenotazioni.iterrows():
         if inizio_settimana <= row["Data"].date() <= fine_settimana:
             giorno_label = row["Data"].strftime("%A %-d/%-m/%Y").capitalize()
-            if row["Mezzo"] not in calendario.index:
+            if row["Modello"] not in calendario.index:
                 continue
             ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
             ora_fine = pd.to_datetime(str(row["Ora Fine"])).strftime("%H:%M")
             info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
-            if pd.isna(calendario.at[row["Mezzo"], giorno_label]):
-                calendario.at[row["Mezzo"], giorno_label] = info
+            if pd.isna(calendario.at[row["Modello"], giorno_label]):
+                calendario.at[row["Modello"], giorno_label] = info
             else:
-                calendario.at[row["Mezzo"], giorno_label] += f"\n{info}"
+                calendario.at[row["Modello"], giorno_label] += f"\n{info}"
 
 # --- STILE E COLORI ---
 def color_cells(val):
@@ -154,7 +154,7 @@ if not prenotazioni.empty:
 # --- FORM NUOVA PRENOTAZIONE ---
 st.subheader("➕ Nuova prenotazione")
 with st.form("nuova_prenotazione"):
-    mezzo = st.selectbox("Seleziona mezzo", mezzi["MEZZO_COMPLETO"].dropna().unique())
+    mezzo = st.selectbox("Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique())
     data = st.date_input("Data", oggi)
     ora_inizio = st.time_input("Ora inizio", datetime.time(9, 0))
     ora_fine = st.time_input("Ora fine", datetime.time(17, 0))
@@ -163,7 +163,7 @@ with st.form("nuova_prenotazione"):
 
 if submit:
     nuova = pd.DataFrame([[mezzo, data, ora_inizio, ora_fine, utente]],
-                         columns=["Mezzo", "Data", "Ora Inizio", "Ora Fine", "Utente"])
+                         columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
