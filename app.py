@@ -3,16 +3,18 @@ import pandas as pd
 import datetime
 import locale
 
-# Imposta lingua italiana per i giorni
+# Imposta lingua italiana
 try:
     locale.setlocale(locale.LC_TIME, "it_IT.utf8")
 except:
-    pass  # fallback se locale non disponibile
+    pass
 
 # Carica mezzi
 @st.cache_data
 def load_mezzi():
     df = pd.read_excel("Automezzi ASP (8).xlsx", skiprows=1)
+    # Combiniamo MODELLO + TARGA
+    df["MEZZO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
     return df
 
 mezzi = load_mezzi()
@@ -21,7 +23,7 @@ mezzi = load_mezzi()
 try:
     prenotazioni = pd.read_csv("prenotazioni.csv", parse_dates=["Data"])
 except FileNotFoundError:
-    prenotazioni = pd.DataFrame(columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
+    prenotazioni = pd.DataFrame(columns=["Mezzo", "Data", "Ora Inizio", "Ora Fine", "Utente"])
 
 st.title("🚐 Calendario prenotazioni automezzi")
 
@@ -30,40 +32,31 @@ oggi = datetime.date.today()
 if "inizio_settimana" not in st.session_state:
     st.session_state.inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 
-col1, col2, col3 = st.columns([1, 2, 1])
-with col1:
-    if st.button("⬅️ Settimana precedente"):
-        st.session_state.inizio_settimana -= datetime.timedelta(days=7)
-with col3:
-    if st.button("➡️ Settimana successiva"):
-        st.session_state.inizio_settimana += datetime.timedelta(days=7)
-
 inizio_settimana = st.session_state.inizio_settimana
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%d %B %Y')}** al **{fine_settimana.strftime('%d %B %Y')}**")
+st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%d/%m/%Y')}** al **{fine_settimana.strftime('%d/%m/%Y')}**")
 
-# Giorni della settimana in italiano
+# Giorni settimana (formato G/M/A)
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
-giorni_labels = [g.strftime("%A %d/%m").capitalize() for g in giorni]
+giorni_labels = [g.strftime("%A %d/%m/%Y").capitalize() for g in giorni]
 
-# --- COSTRUZIONE TABELLA CALENDARIO ---
-calendario = pd.DataFrame(index=mezzi["MODELLO"].dropna().unique(), columns=giorni_labels)
+# --- COSTRUZIONE CALENDARIO ---
+calendario = pd.DataFrame(index=mezzi["MEZZO_COMPLETO"].dropna().unique(), columns=giorni_labels)
 
 for _, row in prenotazioni.iterrows():
     if inizio_settimana <= row["Data"].date() <= fine_settimana:
-        giorno_label = row["Data"].strftime("%A %d/%m").capitalize()
+        giorno_label = row["Data"].strftime("%A %d/%m/%Y").capitalize()
         ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
         ora_fine = pd.to_datetime(str(row["Ora Fine"])).strftime("%H:%M")
         info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
-        if pd.isna(calendario.at[row["Modello"], giorno_label]):
-            calendario.at[row["Modello"], giorno_label] = info
+        if pd.isna(calendario.at[row["Mezzo"], giorno_label]):
+            calendario.at[row["Mezzo"], giorno_label] = info
         else:
-            calendario.at[row["Modello"], giorno_label] += f"\n{info}"
+            calendario.at[row["Mezzo"], giorno_label] += f"\n{info}"
 
-# --- AGGIUNGI COLORI CELLE ---
+# --- STILE CELLE ---
 def color_cells(val):
-    """Applica colore giallo chiaro se la cella ha prenotazioni, bianco se vuota"""
     if pd.isna(val) or val == "":
         return "background-color: white; color: black;"
     else:
@@ -71,10 +64,17 @@ def color_cells(val):
 
 styled_calendario = calendario.fillna("").style.applymap(color_cells)
 
-# --- MOSTRARE LA TABELLA ---
-st.subheader("📊 Vista settimanale tipo calendario")
+# --- MOSTRARE CALENDARIO ---
+col1, col2 = st.columns([3,1])
+with col1:
+    st.subheader("📊 Calendario settimanale")
+with col2:
+    if st.button("⬅️", key="prev"):
+        st.session_state.inizio_settimana -= datetime.timedelta(days=7)
+    if st.button("➡️", key="next"):
+        st.session_state.inizio_settimana += datetime.timedelta(days=7)
 
-# CSS aggiuntivo per intestazioni e prima colonna
+# CSS per tabella
 st.markdown(
     """
     <style>
@@ -83,19 +83,19 @@ st.markdown(
         width: 100%;
     }
     th {
-        background-color: #90EE90 !important; /* verde chiaro */
+        background-color: #90EE90 !important;
         color: black !important;
         padding: 8px;
         text-align: center;
         border: 1px solid #bbb;
     }
     th:first-child {
-        background-color: white !important; /* colonna Modello */
+        background-color: white !important;
         color: black !important;
         font-weight: bold;
     }
     td:first-child {
-        background-color: white !important; /* celle Modello */
+        background-color: white !important;
         color: black !important;
         font-weight: bold;
     }
@@ -109,7 +109,7 @@ st.write(styled_calendario.to_html(), unsafe_allow_html=True)
 # --- FORM NUOVA PRENOTAZIONE ---
 st.subheader("➕ Nuova prenotazione")
 with st.form("nuova_prenotazione"):
-    mezzo = st.selectbox("Seleziona mezzo", mezzi["MODELLO"].dropna().unique())
+    mezzo = st.selectbox("Seleziona mezzo", mezzi["MEZZO_COMPLETO"].dropna().unique())
     data = st.date_input("Data", oggi)
     ora_inizio = st.time_input("Ora inizio", datetime.time(9, 0))
     ora_fine = st.time_input("Ora fine", datetime.time(17, 0))
@@ -118,7 +118,7 @@ with st.form("nuova_prenotazione"):
 
 if submit:
     nuova = pd.DataFrame([[mezzo, data, ora_inizio, ora_fine, utente]],
-                         columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
+                         columns=["Mezzo", "Data", "Ora Inizio", "Ora Fine", "Utente"])
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
