@@ -26,13 +26,13 @@ st.title("🚐 Calendario prenotazioni automezzi")
 # --- NAVIGAZIONE SETTIMANA ---
 oggi = datetime.date.today()
 
-# sempre settimana corrente (no session_state per reset automatico)
+# settimana corrente (no session_state per reset automatico)
 inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
 # pulsanti per spostarsi tra settimane
 spostamento = st.session_state.get("spostamento", 0)
-col1, col2, col3 = st.columns([5,1,1])
+col1, col2, col3 = st.columns([5, 1, 1])
 with col2:
     if st.button("⬅️", key="prev"):
         spostamento -= 7
@@ -45,7 +45,10 @@ st.session_state["spostamento"] = spostamento
 inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** al **{fine_settimana.strftime('%-d/%-m/%Y')}**")
+st.write(
+    f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** "
+    f"al **{fine_settimana.strftime('%-d/%-m/%Y')}**"
+)
 
 # Giorni in italiano
 giorni_settimana_it = {
@@ -53,15 +56,24 @@ giorni_settimana_it = {
     4: "Venerdì", 5: "Sabato", 6: "Domenica"
 }
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
-giorni_labels = [f"{giorni_settimana_it[g.weekday()]} {g.day}/{g.month}/{g.year}" for g in giorni]
+giorni_labels = [
+    f"{giorni_settimana_it[g.weekday()]} {g.day}/{g.month}/{g.year}" for g in giorni
+]
 
 # --- COSTRUZIONE CALENDARIO ---
-calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels)
+calendario = pd.DataFrame(
+    index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels
+)
 
 if not prenotazioni.empty:
     for _, row in prenotazioni.iterrows():
-        if inizio_settimana <= row["Data"].date() <= fine_settimana:
-            giorno_label = f"{giorni_settimana_it[row['Data'].weekday()]} {row['Data'].day}/{row['Data'].month}/{row['Data'].year}"
+        # forza conversione a datetime
+        data_pren = pd.to_datetime(row["Data"]).date()
+        if inizio_settimana <= data_pren <= fine_settimana:
+            giorno_label = (
+                f"{giorni_settimana_it[data_pren.weekday()]} "
+                f"{data_pren.day}/{data_pren.month}/{data_pren.year}"
+            )
             if row["Modello"] not in calendario.index:
                 continue
             ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
@@ -138,7 +150,7 @@ st.markdown(
 # ✅ Mostra il calendario una sola volta, scrollabile su mobile
 st.markdown('<div class="scrollable-table">', unsafe_allow_html=True)
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+st.markdown("</div>", unsafe_allow_html=True)
 
 # --- PULSANTI DOWNLOAD ---
 if not prenotazioni.empty:
@@ -150,13 +162,13 @@ if not prenotazioni.empty:
         label="📥 Scarica tutte le prenotazioni (Excel)",
         data=buffer_all,
         file_name="prenotazioni_automezzi.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
     # Solo la settimana corrente
     prenotazioni_settimana = prenotazioni[
-        (prenotazioni["Data"].dt.date >= inizio_settimana) &
-        (prenotazioni["Data"].dt.date <= fine_settimana)
+        (pd.to_datetime(prenotazioni["Data"]).dt.date >= inizio_settimana)
+        & (pd.to_datetime(prenotazioni["Data"]).dt.date <= fine_settimana)
     ]
     if not prenotazioni_settimana.empty:
         buffer_week = BytesIO()
@@ -166,13 +178,15 @@ if not prenotazioni.empty:
             label="📥 Scarica prenotazioni di questa settimana (Excel)",
             data=buffer_week,
             file_name=f"prenotazioni_settimana_{inizio_settimana.strftime('%d-%m-%Y')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
 # --- FORM NUOVA PRENOTAZIONE ---
 st.subheader("➕ Nuova prenotazione")
 with st.form("nuova_prenotazione"):
-    mezzo = st.selectbox("Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique())
+    mezzo = st.selectbox(
+        "Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique()
+    )
     data = st.date_input("Data", oggi)
     ora_inizio = st.time_input("Ora inizio", datetime.time(9, 0))
     ora_fine = st.time_input("Ora fine", datetime.time(17, 0))
@@ -180,8 +194,10 @@ with st.form("nuova_prenotazione"):
     submit = st.form_submit_button("Prenota")
 
 if submit:
-    nuova = pd.DataFrame([[mezzo, data, ora_inizio, ora_fine, utente]],
-                         columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
+    nuova = pd.DataFrame(
+        [[mezzo, data, ora_inizio, ora_fine, utente]],
+        columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"],
+    )
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
