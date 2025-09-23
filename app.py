@@ -18,7 +18,6 @@ mezzi = load_mezzi()
 # --- CARICA PRENOTAZIONI ---
 try:
     prenotazioni = pd.read_csv("prenotazioni.csv")
-    # forza conversione colonna Data a datetime, valori non validi diventano NaT
     prenotazioni["Data"] = pd.to_datetime(prenotazioni["Data"], errors="coerce")
 except FileNotFoundError:
     prenotazioni = pd.DataFrame(columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
@@ -27,12 +26,10 @@ st.title("🚐 Calendario prenotazioni automezzi")
 
 # --- NAVIGAZIONE SETTIMANA ---
 oggi = datetime.date.today()
-
-# settimana corrente
 inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-# pulsanti per navigare
+# pulsanti settimana
 spostamento = st.session_state.get("spostamento", 0)
 col1, col2, col3 = st.columns([5, 1, 1])
 with col2:
@@ -43,7 +40,7 @@ with col3:
         spostamento += 7
 st.session_state["spostamento"] = spostamento
 
-# aggiorna settimana corrente con spostamento
+# aggiorna settimana corrente
 inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
@@ -99,7 +96,6 @@ styled_calendario = calendario.fillna("").style.applymap(color_cells)
 # --- MOSTRARE CALENDARIO ---
 st.subheader("📊 Calendario settimanale")
 
-# CSS per celle più grandi, testo a capo e responsive
 st.markdown(
     """
     <style>
@@ -150,14 +146,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ✅ calendario visibile una sola volta
 st.markdown('<div class="scrollable-table">', unsafe_allow_html=True)
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- PULSANTI DOWNLOAD ---
 if not prenotazioni.empty:
-    # tutte le prenotazioni
     buffer_all = BytesIO()
     prenotazioni.to_excel(buffer_all, index=False, engine="openpyxl")
     buffer_all.seek(0)
@@ -168,7 +162,6 @@ if not prenotazioni.empty:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-    # solo settimana corrente
     prenotazioni_settimana = prenotazioni[
         (prenotazioni["Data"].notna())
         & (prenotazioni["Data"].dt.date >= inizio_settimana)
@@ -191,7 +184,7 @@ with st.form("nuova_prenotazione"):
     mezzo = st.selectbox(
         "Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique()
     )
-    data = st.date_input("Data", oggi)
+    data = st.date_input("Data", oggi, format="DD/MM/YYYY")
     ora_inizio = st.time_input("Ora inizio", datetime.time(9, 0))
     ora_fine = st.time_input("Ora fine", datetime.time(17, 0))
     utente = st.text_input("Nome utente")
@@ -205,3 +198,4 @@ if submit:
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
+    st.rerun()  # 🔄 aggiorna subito il calendario
