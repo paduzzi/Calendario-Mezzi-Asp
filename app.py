@@ -7,7 +7,6 @@ from io import BytesIO
 @st.cache_data
 def load_mezzi():
     df = pd.read_excel("Automezzi ASP (8).xlsx", skiprows=1)
-    # Se c'è anche la targa, combiniamo Modello + Targa
     if "MODELLO" in df.columns and "TARGA" in df.columns:
         df["MODELLO_COMPLETO"] = df["MODELLO"].astype(str) + " (" + df["TARGA"].astype(str) + ")"
     else:
@@ -26,28 +25,37 @@ st.title("🚐 Calendario prenotazioni automezzi")
 
 # --- NAVIGAZIONE SETTIMANA ---
 oggi = datetime.date.today()
-if "inizio_settimana" not in st.session_state:
-    st.session_state.inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 
-inizio_settimana = st.session_state.inizio_settimana
+# sempre settimana corrente (no session_state)
+inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
+fine_settimana = inizio_settimana + datetime.timedelta(days=6)
+
+# pulsanti per spostarsi tra settimane
+spostamento = st.session_state.get("spostamento", 0)
+col1, col2, col3 = st.columns([5,1,1])
+with col2:
+    if st.button("⬅️", key="prev"):
+        spostamento -= 7
+with col3:
+    if st.button("➡️", key="next"):
+        spostamento += 7
+st.session_state["spostamento"] = spostamento
+
+# aggiorna settimana corrente con eventuale spostamento
+inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
 st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** al **{fine_settimana.strftime('%-d/%-m/%Y')}**")
 
-# Giorni della settimana in italiano
+# Giorni in italiano
 giorni_settimana_it = {
-    0: "Lunedì",
-    1: "Martedì",
-    2: "Mercoledì",
-    3: "Giovedì",
-    4: "Venerdì",
-    5: "Sabato",
-    6: "Domenica"
+    0: "Lunedì", 1: "Martedì", 2: "Mercoledì", 3: "Giovedì",
+    4: "Venerdì", 5: "Sabato", 6: "Domenica"
 }
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
 giorni_labels = [f"{giorni_settimana_it[g.weekday()]} {g.day}/{g.month}/{g.year}" for g in giorni]
 
-# --- COSTRUZIONE TABELLA CALENDARIO ---
+# --- COSTRUZIONE CALENDARIO ---
 calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels)
 
 if not prenotazioni.empty:
@@ -74,17 +82,9 @@ def color_cells(val):
 styled_calendario = calendario.fillna("").style.applymap(color_cells)
 
 # --- MOSTRARE CALENDARIO ---
-col1, col2, col3 = st.columns([5,1,1])
-with col1:
-    st.subheader("📊 Calendario settimanale")
-with col2:
-    if st.button("⬅️", key="prev"):
-        st.session_state.inizio_settimana -= datetime.timedelta(days=7)
-with col3:
-    if st.button("➡️", key="next"):
-        st.session_state.inizio_settimana += datetime.timedelta(days=7)
+st.subheader("📊 Calendario settimanale")
 
-# CSS per colori e testo a capo
+# CSS per celle più grandi e testo a capo
 st.markdown(
     """
     <style>
@@ -93,20 +93,21 @@ st.markdown(
         width: 100%;
     }
     th {
-        background-color: #90EE90 !important; /* verde chiaro */
+        background-color: #90EE90 !important;
         color: black !important;
         padding: 6px;
         text-align: center;
         border: 1px solid #bbb;
     }
     th:first-child {
-        background-color: white !important; /* colonna mezzi */
+        background-color: white !important;
         color: black !important;
         font-weight: bold;
+        min-width: 220px; /* celle mezzi più larghe */
     }
     td {
         border: 1px solid #bbb;
-        padding: 6px;
+        padding: 10px; /* più spazio */
         vertical-align: top;
         white-space: pre-wrap;
         word-wrap: break-word;
@@ -116,6 +117,7 @@ st.markdown(
         background-color: white !important;
         color: black !important;
         font-weight: bold;
+        min-width: 220px; /* celle mezzi più larghe */
     }
     </style>
     """,
