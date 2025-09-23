@@ -29,7 +29,6 @@ oggi = datetime.date.today()
 inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-# pulsanti settimana
 spostamento = st.session_state.get("spostamento", 0)
 col1, col2, col3 = st.columns([5, 1, 1])
 with col2:
@@ -40,7 +39,6 @@ with col3:
         spostamento += 7
 st.session_state["spostamento"] = spostamento
 
-# aggiorna settimana corrente
 inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
@@ -65,6 +63,8 @@ calendario = pd.DataFrame(
 )
 
 if not prenotazioni.empty:
+    index_norm = [m.strip().upper() for m in calendario.index]
+
     for _, row in prenotazioni.iterrows():
         if pd.isna(row["Data"]):
             continue
@@ -74,15 +74,20 @@ if not prenotazioni.empty:
                 f"{giorni_settimana_it[data_pren.weekday()]} "
                 f"{data_pren.day}/{data_pren.month}/{data_pren.year}"
             )
-            if row["Modello"] not in calendario.index:
+
+            mezzo_norm = str(row["Modello"]).strip().upper()
+            if mezzo_norm not in index_norm:
                 continue
+            mezzo_reale = calendario.index[index_norm.index(mezzo_norm)]
+
             ora_inizio = pd.to_datetime(str(row["Ora Inizio"]), errors="coerce").strftime("%H:%M")
             ora_fine = pd.to_datetime(str(row["Ora Fine"]), errors="coerce").strftime("%H:%M")
             info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
-            if pd.isna(calendario.at[row["Modello"], giorno_label]):
-                calendario.at[row["Modello"], giorno_label] = info
+
+            if pd.isna(calendario.at[mezzo_reale, giorno_label]):
+                calendario.at[mezzo_reale, giorno_label] = info
             else:
-                calendario.at[row["Modello"], giorno_label] += f"\n{info}"
+                calendario.at[mezzo_reale, giorno_label] += f"\n{info}"
 
 # --- STILE E COLORI ---
 def color_cells(val):
@@ -198,4 +203,4 @@ if submit:
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
     st.success("✅ Prenotazione registrata!")
-    st.rerun()  # 🔄 aggiorna subito il calendario
+    st.rerun()
