@@ -17,7 +17,9 @@ mezzi = load_mezzi()
 
 # --- CARICA PRENOTAZIONI ---
 try:
-    prenotazioni = pd.read_csv("prenotazioni.csv", parse_dates=["Data"])
+    prenotazioni = pd.read_csv("prenotazioni.csv")
+    # forza conversione colonna Data a datetime, valori non validi diventano NaT
+    prenotazioni["Data"] = pd.to_datetime(prenotazioni["Data"], errors="coerce")
 except FileNotFoundError:
     prenotazioni = pd.DataFrame(columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"])
 
@@ -26,11 +28,11 @@ st.title("🚐 Calendario prenotazioni automezzi")
 # --- NAVIGAZIONE SETTIMANA ---
 oggi = datetime.date.today()
 
-# settimana corrente (no session_state per reset automatico)
+# settimana corrente
 inizio_settimana = oggi - datetime.timedelta(days=oggi.weekday())
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
-# pulsanti per spostarsi tra settimane
+# pulsanti per navigare
 spostamento = st.session_state.get("spostamento", 0)
 col1, col2, col3 = st.columns([5, 1, 1])
 with col2:
@@ -41,7 +43,7 @@ with col3:
         spostamento += 7
 st.session_state["spostamento"] = spostamento
 
-# aggiorna settimana corrente con eventuale spostamento
+# aggiorna settimana corrente con spostamento
 inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
@@ -67,8 +69,9 @@ calendario = pd.DataFrame(
 
 if not prenotazioni.empty:
     for _, row in prenotazioni.iterrows():
-        # forza conversione a datetime
-        data_pren = pd.to_datetime(row["Data"]).date()
+        if pd.isna(row["Data"]):
+            continue
+        data_pren = row["Data"].date()
         if inizio_settimana <= data_pren <= fine_settimana:
             giorno_label = (
                 f"{giorni_settimana_it[data_pren.weekday()]} "
@@ -76,8 +79,8 @@ if not prenotazioni.empty:
             )
             if row["Modello"] not in calendario.index:
                 continue
-            ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
-            ora_fine = pd.to_datetime(str(row["Ora Fine"])).strftime("%H:%M")
+            ora_inizio = pd.to_datetime(str(row["Ora Inizio"]), errors="coerce").strftime("%H:%M")
+            ora_fine = pd.to_datetime(str(row["Ora Fine"]), errors="coerce").strftime("%H:%M")
             info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
             if pd.isna(calendario.at[row["Modello"], giorno_label]):
                 calendario.at[row["Modello"], giorno_label] = info
@@ -96,7 +99,7 @@ styled_calendario = calendario.fillna("").style.applymap(color_cells)
 # --- MOSTRARE CALENDARIO ---
 st.subheader("📊 Calendario settimanale")
 
-# CSS per celle più grandi, testo a capo e responsive su mobile
+# CSS per celle più grandi, testo a capo e responsive
 st.markdown(
     """
     <style>
@@ -115,7 +118,7 @@ st.markdown(
         background-color: white !important;
         color: black !important;
         font-weight: bold;
-        min-width: 220px; /* celle mezzi più larghe */
+        min-width: 220px;
     }
     td {
         border: 1px solid #bbb;
@@ -133,7 +136,7 @@ st.markdown(
     }
     @media (max-width: 600px) {
         table {
-            font-size: 12px; /* testo più piccolo su smartphone */
+            font-size: 12px;
         }
         th, td {
             padding: 4px;
@@ -147,14 +150,14 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ✅ Mostra il calendario una sola volta, scrollabile su mobile
+# ✅ calendario visibile una sola volta
 st.markdown('<div class="scrollable-table">', unsafe_allow_html=True)
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
 # --- PULSANTI DOWNLOAD ---
 if not prenotazioni.empty:
-    # Tutte le prenotazioni
+    # tutte le prenotazioni
     buffer_all = BytesIO()
     prenotazioni.to_excel(buffer_all, index=False, engine="openpyxl")
     buffer_all.seek(0)
@@ -165,10 +168,11 @@ if not prenotazioni.empty:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-    # Solo la settimana corrente
+    # solo settimana corrente
     prenotazioni_settimana = prenotazioni[
-        (pd.to_datetime(prenotazioni["Data"]).dt.date >= inizio_settimana)
-        & (pd.to_datetime(prenotazioni["Data"]).dt.date <= fine_settimana)
+        (prenotazioni["Data"].notna())
+        & (prenotazioni["Data"].dt.date >= inizio_settimana)
+        & (prenotazioni["Data"].dt.date <= fine_settimana)
     ]
     if not prenotazioni_settimana.empty:
         buffer_week = BytesIO()
