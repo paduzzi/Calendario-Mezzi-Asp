@@ -1,14 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import locale
 from io import BytesIO
-
-# Imposta lingua italiana
-try:
-    locale.setlocale(locale.LC_TIME, "it_IT.utf8")
-except:
-    pass
 
 # --- CARICA MEZZI ---
 @st.cache_data
@@ -41,9 +34,18 @@ fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
 st.write(f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** al **{fine_settimana.strftime('%-d/%-m/%Y')}**")
 
-# Giorni della settimana (italiano, formato G/M/A)
+# Giorni della settimana in italiano
+giorni_settimana_it = {
+    0: "Lunedì",
+    1: "Martedì",
+    2: "Mercoledì",
+    3: "Giovedì",
+    4: "Venerdì",
+    5: "Sabato",
+    6: "Domenica"
+}
 giorni = [inizio_settimana + datetime.timedelta(days=i) for i in range(7)]
-giorni_labels = [g.strftime("%A %-d/%-m/%Y").capitalize() for g in giorni]
+giorni_labels = [f"{giorni_settimana_it[g.weekday()]} {g.day}/{g.month}/{g.year}" for g in giorni]
 
 # --- COSTRUZIONE TABELLA CALENDARIO ---
 calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels)
@@ -51,7 +53,7 @@ calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), col
 if not prenotazioni.empty:
     for _, row in prenotazioni.iterrows():
         if inizio_settimana <= row["Data"].date() <= fine_settimana:
-            giorno_label = row["Data"].strftime("%A %-d/%-m/%Y").capitalize()
+            giorno_label = f"{giorni_settimana_it[row['Data'].weekday()]} {row['Data'].day}/{row['Data'].month}/{row['Data'].year}"
             if row["Modello"] not in calendario.index:
                 continue
             ora_inizio = pd.to_datetime(str(row["Ora Inizio"])).strftime("%H:%M")
