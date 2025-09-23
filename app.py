@@ -3,6 +3,9 @@ import pandas as pd
 import datetime
 from io import BytesIO
 
+# --- CONFIG ---
+st.set_page_config(page_title="Calendario prenotazioni automezzi", layout="wide")
+
 # --- CARICA MEZZI ---
 @st.cache_data
 def load_mezzi():
@@ -43,8 +46,8 @@ inizio_settimana += datetime.timedelta(days=spostamento)
 fine_settimana = inizio_settimana + datetime.timedelta(days=6)
 
 st.write(
-    f"📅 Settimana dal **{inizio_settimana.strftime('%-d/%-m/%Y')}** "
-    f"al **{fine_settimana.strftime('%-d/%-m/%Y')}**"
+    f"📅 Settimana dal **{inizio_settimana.strftime('%d/%m/%Y')}** "
+    f"al **{fine_settimana.strftime('%d/%m/%Y')}**"
 )
 
 # Giorni in italiano
@@ -58,9 +61,7 @@ giorni_labels = [
 ]
 
 # --- COSTRUZIONE CALENDARIO ---
-calendario = pd.DataFrame(
-    index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels
-)
+calendario = pd.DataFrame(index=mezzi["MODELLO_COMPLETO"].dropna().unique(), columns=giorni_labels)
 
 if not prenotazioni.empty:
     index_norm = [m.strip().upper() for m in calendario.index]
@@ -74,16 +75,11 @@ if not prenotazioni.empty:
                 f"{giorni_settimana_it[data_pren.weekday()]} "
                 f"{data_pren.day}/{data_pren.month}/{data_pren.year}"
             )
-
             mezzo_norm = str(row["Modello"]).strip().upper()
             if mezzo_norm not in index_norm:
                 continue
             mezzo_reale = calendario.index[index_norm.index(mezzo_norm)]
-
-            ora_inizio = str(row["Ora Inizio"])
-            ora_fine = str(row["Ora Fine"])
-            info = f"{ora_inizio}–{ora_fine} ({row['Utente']})"
-
+            info = f"{row['Ora Inizio']}–{row['Ora Fine']} ({row['Utente']})"
             if pd.isna(calendario.at[mezzo_reale, giorno_label]):
                 calendario.at[mezzo_reale, giorno_label] = info
             else:
@@ -135,17 +131,6 @@ st.markdown(
         font-weight: bold;
         min-width: 220px;
     }
-    @media (max-width: 600px) {
-        table {
-            font-size: 12px;
-        }
-        th, td {
-            padding: 4px;
-        }
-    }
-    .scrollable-table {
-        overflow-x: auto;
-    }
     </style>
     """,
     unsafe_allow_html=True
@@ -155,40 +140,10 @@ st.markdown('<div class="scrollable-table">', unsafe_allow_html=True)
 st.write(styled_calendario.to_html(), unsafe_allow_html=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- PULSANTI DOWNLOAD ---
-if not prenotazioni.empty:
-    buffer_all = BytesIO()
-    prenotazioni.to_excel(buffer_all, index=False, engine="openpyxl")
-    buffer_all.seek(0)
-    st.download_button(
-        label="📥 Scarica tutte le prenotazioni (Excel)",
-        data=buffer_all,
-        file_name="prenotazioni_automezzi.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-    prenotazioni_settimana = prenotazioni[
-        (prenotazioni["Data"].notna())
-        & (prenotazioni["Data"].dt.date >= inizio_settimana)
-        & (prenotazioni["Data"].dt.date <= fine_settimana)
-    ]
-    if not prenotazioni_settimana.empty:
-        buffer_week = BytesIO()
-        prenotazioni_settimana.to_excel(buffer_week, index=False, engine="openpyxl")
-        buffer_week.seek(0)
-        st.download_button(
-            label="📥 Scarica prenotazioni di questa settimana (Excel)",
-            data=buffer_week,
-            file_name=f"prenotazioni_settimana_{inizio_settimana.strftime('%d-%m-%Y')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
 # --- FORM NUOVA PRENOTAZIONE ---
 st.subheader("➕ Nuova prenotazione")
 with st.form("nuova_prenotazione"):
-    mezzo = st.selectbox(
-        "Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique()
-    )
+    mezzo = st.selectbox("Seleziona mezzo", mezzi["MODELLO_COMPLETO"].dropna().unique())
     data = st.date_input("Data", oggi, format="DD/MM/YYYY")
     ora_inizio = st.time_input("Ora inizio", datetime.time(9, 0))
     ora_fine = st.time_input("Ora fine", datetime.time(17, 0))
@@ -200,10 +155,7 @@ if submit:
         [[mezzo, data.strftime("%Y-%m-%d"), ora_inizio.strftime("%H:%M"), ora_fine.strftime("%H:%M"), utente]],
         columns=["Modello", "Data", "Ora Inizio", "Ora Fine", "Utente"],
     )
-
     prenotazioni = pd.concat([prenotazioni, nuova], ignore_index=True)
     prenotazioni.to_csv("prenotazioni.csv", index=False)
-
     st.success("✅ Prenotazione registrata!")
     st.rerun()
-
